@@ -1,4 +1,4 @@
-ISPFLLV - ISPF List/Log Viewer
+ISPFLLV - ISPF List/Log Sysout Viewer
 
 This exec provides the ISPF user, who has allocated both ISPLIST and ISPLOG
 to SYSOUT, with the ability to view the active contents of these DD's.
