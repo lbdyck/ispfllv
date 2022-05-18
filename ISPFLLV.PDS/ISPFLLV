@@ -1,0 +1,510 @@
+  /* --------------------  rexx procedure  -------------------- *
+  | Name:      ISPFLLV                                         |
+  |                                                            |
+  | Function:  ISPF Log/List View                              |
+  |                                                            |
+  | Syntax:    %ispfllv log/list                               |
+  |                                                            |
+  |            log to view the ISPLOG sysout                   |
+  |            list to view the ISPLIST sysout                 |
+  |                                                            |
+  |            default is LOG                                  |
+  |                                                            |
+  | Dependencies: 1. ISPLIST and ISPLOG must be allocated to   |
+  |                  SYSOUT                                    |
+  |               2. The SDSF REXX API must be available       |
+  |               3. STEMEDIT must be available                |
+  |                                                            |
+  | Notes: Add these to the ISPF Command table for quicker     |
+  |        and easier use (ispfcmds will do this dynamically)  |
+  |                                                            |
+  |        Verb  Trunc  Action                                 |
+  |        VLIST     3  SELECT CMD(%ISPFLLV &ZPARM LIST)       |
+  |        VLOG      3  SELECT CMD(%ISPFLLV &ZPARM LOG)        |
+  |                                                            |
+  |        Sample Allocation for ISPLIST/ISPLOG:               |
+  |                                                            |
+  |        ALLOC F(ISPLIST) SYSOUT(H) HOLD -                   |
+  |          LRECL(121) BLKSIZE(1210) RECFM(F B A)             |
+  |        ALLOC F(ISPLOG)  SYSOUT(H) HOLD -                   |
+  |          LRECL(125) BLKSIZE(129) RECFM(V A)                |
+  |                                                            |
+  | Inspired by a posting by John Kalinich.                    |
+  |                                                            |
+  | Author:    Lionel B. Dyck                                  |
+  |                                                            |
+  | History:  (most recent on top)                             |
+  |            2022/05/16 LBD - Refinement.                    |
+  |            2022/05/15 LBD - Refinement.                    |
+  |            2022/05/14 LBD - Creation                       |
+  |                                                            |
+  * ---------------------------------------------------------- *
+  | Copyright (c) 2021-2022 by Lionel B. Dyck under the MIT    |
+  | License                                                    |
+  | https://mit-license.org                                    |
+  * ---------------------------------------------------------- */
+  arg ispfdd
+
+  if word(ispfdd,1) = '?' then call do_tutor
+
+  /* -------------------------------- *
+  | Validate/Set the DD to work with |
+  * -------------------------------- */
+  Select
+    When abbrev('LOG',ispfdd,2) = 1 then ispfdd = 'ISPLOG'
+    When abbrev('LIST',ispfdd,2) = 1 then ispfdd = 'ISPLIST'
+    Otherwise ispfdd = 'ISPLOG'
+  end
+
+  /* -------------------- *
+  | Enable SDSF REXX API |
+  * -------------------- */
+  rc = isfcalls("ON")
+
+  /* ------------------- *
+  | Define our defaults |
+  * ------------------- */
+  isfprefix = "*"
+  isfdest   = ''
+  isfowner  = sysvar('sysuid')
+
+  /* ---------------------------- *
+  | Get the active Jobname/JobID |
+  * ---------------------------- */
+  job = get_jobid()
+  parse value job with jobname'('jobid')'
+
+  /* ------------------------------------- *
+  | Can only SDSF ST for jobname so do it |
+  * ------------------------------------- */
+  address SDSF "isfexec st" jobname
+
+  /* ------------------------- *
+  | Now find the active jobid |
+  * ------------------------- */
+  do i = 1 to isfrows
+    if jobid.i /= jobid then iterate
+    /* ----------------------- *
+    | Get the list of DDnames |
+    * ----------------------- */
+    address sdsf "isfact st token('"token.i"') PARM(NP ?) (prefix j_"
+    do id = 1 to j_ddname.0
+      if j_ddname.id /= ispfdd then iterate
+      /* --------------------------- *
+      | Now process the selected DD |
+      * --------------------------- */
+      address sdsf "isfact st token('"j_token.id"') PARM(NP SA)"
+      'Execio * diskr' isfddname.1 '(finis stem in.'
+      title = 'DDName('ispfdd')'  'Sysout Class('j_oclass.id')'
+      call stemedit 'view','in.',,,title
+      call done
+    end
+    zedsmsg = ''
+    zedlmsg = ispfdd 'has no data or is was not found allocated to SYSOUT.'
+    address ispexec 'setmsg msg(isrz001)'
+    if isfmsg /= '' then
+    say isfmsg
+  end
+done:
+  rc = isfcalls("OFF")
+  exit
+
+  /* ------------------------------------------ *
+  | Chase control blocks for jobname and jobid |
+  * ------------------------------------------ */
+get_jobid: procedure
+  tcb      = ptr(540)
+  tiot     = ptr(tcb+12)
+  jobname  = stg(tiot,8)
+  jscb     = ptr(tcb+180)
+  ssib     = ptr(jscb+316)
+  jobidl   = stg(ssib+12,8)
+  jobidl   = strip(jobidl)
+  _jobidn_ = null
+  do _idx_ = 1 to length(jobidl)
+    _jobidc_ = substr(jobidl,_idx_,1)    /* only 1 char */
+    if datatype(_jobidc_) = "NUM" ,
+      then do;
+      _jobtype = substr(jobidl,1,_idx_-1)
+      _jobidn_ = substr(jobidl,_idx_)
+      leave
+    end;
+  end;
+  jobid      = substr(jobidl,1,1)""_jobidn_
+  _stepname_ = strip(stg(tiot+8,8))
+  _procstep_ = strip(stg(tiot+16,8))
+  _program_  = strip(stg(jscb+360,8))
+  if length(jobid) < 8 then
+  if left(jobid,1) = 'T' then
+  jobid = 'TSU'substr(jobid,2)
+  return strip(jobname)'('jobid')'
+
+  /* ----------------------------------------- *
+  * Subroutines used to get data from storage *
+  * ----------------------------------------- */
+ptr: return c2d(storage(d2x(arg(1)),4))
+stg: return storage(d2x(arg(1)),arg(2))
+
+Do_Tutor:
+  load_ispf = loadispf()
+  Address ISPExec 'Select pgm(isptutor) parm(ispfllvh)'
+  x = dropispf(load_ispf)
+  exit
+
+/* Start of inline ISPF Tutorial Panel - must remain all in REXX comments
+>Start
+>Panel ISPFLLVH
+)Attr Default(%+_)
+)Body Expand(\\)
+%Tutorial+\-\%ISPF List/Log View+\-\%Tutorial+
++Command ===>_zcmd                                                             +
++
++The%VLIST+and%VLOG+ISPF commands invoke the ISPFLLV REXX Exec to present
++to the user a display of their active ISPF%ISPLIST+or%ISPLOG+data.
++
++These only work if the%ISPLIST+and%ISPLOG+DD's have been pre-allocated before
++ISPF starts, and they must be pre-allocated to SYSOUT (see below for sample).
++
++The data contained in%ISPLIST+or%ISPLOG+will be displayed using STEMEDIT View
++allowing the data to be copied (using the ISPF Edit Copy command) to a new, or
++existing data set.
++
+%Assumption:+ The VLIST and VLOG commands have been added to the ISPF
++              command table.
++
+%Syntax: +ISPFLLV LIst/LOg or ?
++
+%Sample Allocations:
++   alloc f(isplist) sysout(h) hold lrecl(121) blksize(1210) recfm(f b a)
++   alloc f(isplog)  sysout(h) hold lrecl(125) blksize(129) recfm(v a)
++
+)Proc
+ &zup = ispfllvh
+)End
+>End
+   End of the inline ISPF Tutorial Panel */
+
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      LoadISPF                                        *
+ *                                                            *
+ * Function:  Load ISPF elements that are inline in the       *
+ *            REXX source code.                               *
+ *                                                            *
+ * Syntax:    load_info = loadispf()                          *
+ *            rc = dropispf(load_info)                        *
+ *                                                            *
+ *            The inline ISPF resources are limited to        *
+ *            ISPF Messages, Panels, and Skeletons,           *
+ *                 CLISTs and EXECs are also supported.       *
+ *                                                            *
+ *            The inline resources must start in column 1     *
+ *            and use the following syntax:                   *
+ *                                                            *
+ *            >START    used to indicate the start of the     *
+ *                      inline data                           *
+ *                                                            *
+ *            >END    - used to indicate the end of the       *
+ *                      inline data                           *
+ *                                                            *
+ *            Each resource begins with a type record:        *
+ *            >type name                                      *
+ *               where type is CLIST, EXEC, MSG, PANEL, SKEL  *
+ *                     name is the name of the element        *
+ *                                                            *
+ * Sample usage:                                              *
+ *          -* rexx *-                                        *
+ *          load_info = loadispf()                            *
+ *          ... magic code happens here (your code) ...       *
+ *          rc = dropispf(load_info)                          *
+ *          exit                                              *
+ *          >Start inline elements                            *
+ *          >Panel panel1                                     *
+ *          ...                                               *
+ *          >Msg msg1                                         *
+ *          ...                                               *
+ *          >End of inline elements                           *
+ *                                                            *
+ * Returns:   the list of ddnames allocated for use along     *
+ *            with the libdef's performed or altlib           *
+ *                                                            *
+ *            format is ddname libdef ddname libdef ...       *
+ *                   libdef may be altlibc or altlibe         *
+ *                   for altlib clist or altlib exec          *
+ *                                                            *
+ * Notes:     Entire routine must be included with REXX       *
+ *            exec - inline with the code.                    *
+ *                                                            *
+ * Comments:  The entire rexx program is processed from the   *
+ *            last record to the first to find the >START     *
+ *            record at which point all records from that     *
+ *            point on are processed until the >END           *
+ *            statement or the end of the program is found.   *
+ *                                                            *
+ *            It is *strongly* suggested that the inline      *
+ *            elements be at the very end of your code so     *
+ *            that the search for them is faster.             *
+ *                                                            *
+ *            Inline ISPTLIB or ISPLLIB were not supported    *
+ *            because the values for these would have to be   *
+ *            in hex.                                         *
+ *                                                            *
+ * Author:    Lionel B. Dyck                                  *
+ *                                                            *
+ * History:                                                   *
+ *            01/09/19 - Include DROPISPF routine             *
+ *            08/29/17 - Fixup static values that were vars   *
+ *            05/31/17 - Change default directory count       *
+ *            12/09/16 - update for add_it routine            *
+ *            05/10/16 - correction for clist and exec        *
+ *            04/19/16 - bug correction                       *
+ *            06/04/04 - Enhancements for speed               *
+ *            08/05/02 - Creation                             *
+ *                                                            *
+ * ---------------------------------------------------------- *
+ * Disclaimer: There is no warranty, either explicit or       *
+ * implied with this code. Use it at your own risk as there   *
+ * is no recourse from either the author or his employeer.    *
+ * ---------------------------------------------------------- */
+LoadISPF: Procedure
+
+  parse value "" with null kmsg kpanel kskel first returns ,
+    kclist kexec
+/* ------------------------------------------------------- *
+ * Find the InLine ISPF Elements and load them into a stem *
+ * variable.                                               *
+ *                                                         *
+ * Elements keyword syntax:                                *
+ * >START - start of inline data                           *
+ * >CLIST name                                             *
+ * >EXEC name                                              *
+ * >MSG name                                               *
+ * >PANEL name                                             *
+ * >SKEL name                                              *
+ * >END   - end of all inline data (optional if last)      *
+ * ------------------------------------------------------- */
+  last_line = sourceline()
+  do i = last_line to 1 by -1
+    line = sourceline(i)
+    if translate(left(line,6)) = ">START " then leave
+  end
+  rec = 0
+/* --------------------------------------------------- *
+ * Flag types of ISPF resources by testing each record *
+ * then add each record to the data. stem variable.    *
+ * --------------------------------------------------- */
+  do j = i+1 to last_line
+    line = sourceline(j)
+    if translate(left(line,5)) = ">END "   then leave
+    if translate(left(line,7)) = ">CLIST " then kclist = 1
+    if translate(left(line,6)) = ">EXEC "  then kexec  = 1
+    if translate(left(line,5)) = ">MSG "   then kmsg   = 1
+    if translate(left(line,7)) = ">PANEL " then kpanel = 1
+    if translate(left(line,6)) = ">SKEL "  then kskel  = 1
+    rec  = rec + 1
+    data.rec = line
+  end
+
+/* ----------------------------------------------------- *
+ * Now create the Library and Load the Member(s)         *
+ * ----------------------------------------------------- */
+  Address ISPExec
+/* ----------------------------- *
+ * Assign dynamic random ddnames *
+ * ----------------------------- */
+  clistdd = "lc"random(999)
+  execdd  = "le"random(999)
+  msgdd   = "lm"random(999)
+  paneldd = "lp"random(999)
+  skeldd  = "ls"random(999)
+
+/* ---------------------------------------- *
+ *  LmInit and LmOpen each resource library *
+ * ---------------------------------------- */
+  if kclist <> null then do
+    call alloc_dd clistdd
+    "Lminit dataid(clist) ddname("clistdd")"
+    "LmOpen dataid("clist") Option(Output)"
+    returns = strip(returns clistdd 'ALTLIBC')
+  end
+  if kexec <> null then do
+    call alloc_dd execdd
+    "Lminit dataid(exec) ddname("execdd")"
+    "LmOpen dataid("exec") Option(Output)"
+    returns = strip(returns execdd 'ALTLIBE')
+  end
+  if kmsg <> null then do
+    call alloc_dd msgdd
+    "Lminit dataid(msg) ddname("msgdd")"
+    "LmOpen dataid("msg") Option(Output)"
+    returns = strip(returns msgdd 'ISPMLIB')
+  end
+  if kpanel <> null then do
+    call alloc_dd paneldd
+    "Lminit dataid(panel) ddname("paneldd")"
+    "LmOpen dataid("panel") Option(Output)"
+    returns = strip(returns paneldd 'ISPPLIB')
+  end
+  if kskel <> null then do
+    call alloc_dd skeldd
+    "Lminit dataid(skel) ddname("skeldd")"
+    "LmOpen dataid("skel") Option(Output)"
+    returns = strip(returns skeldd 'ISPSLIB')
+  end
+
+/* ----------------------------------------------- *
+ * Process all records in the data. stem variable. *
+ * ----------------------------------------------- */
+  do i = 1 to rec
+    record = data.i
+    recordu = translate(record)
+    if left(recordu,5) = ">END " then leave
+    if left(recordu,7) = ">CLIST " then do
+      if first = 1 then call add_it
+      type = "Clist"
+      first = 1
+      parse value record with x name
+      iterate
+    end
+    if left(recordu,6) = ">EXEC " then do
+      if first = 1 then call add_it
+      type = "Exec"
+      first = 1
+      parse value record with x name
+      iterate
+    end
+    if left(recordu,5) = ">MSG " then do
+      if first = 1 then call add_it
+      type = "Msg"
+      first = 1
+      parse value record with x name
+      iterate
+    end
+    if left(recordu,7) = ">PANEL " then do
+      if first = 1 then call add_it
+      type = "Panel"
+      first = 1
+      parse value record with x name
+      iterate
+    end
+    if left(recordu,6) = ">SKEL " then do
+      if first = 1 then call add_it
+      type = "Skel"
+      first = 1
+      parse value record with x name
+      iterate
+    end
+   /* --------------------------------------------*
+    * Put the record into the appropriate library *
+    * based on the record type.                   *
+    * ------------------------------------------- */
+    Select
+      When type = "Clist" then
+      "LmPut dataid("clist") MODE(INVAR)" ,
+        "DataLoc(record) DataLen(255)"
+      When type = "Exec" then
+      "LmPut dataid("exec") MODE(INVAR)" ,
+        "DataLoc(record) DataLen(255)"
+      When type = "Msg" then
+      "LmPut dataid("msg") MODE(INVAR)" ,
+        "DataLoc(record) DataLen(80)"
+      When type = "Panel" then
+      "LmPut dataid("panel") MODE(INVAR)" ,
+        "DataLoc(record) DataLen(80)"
+      When type = "Skel" then
+      "LmPut dataid("skel") MODE(INVAR)" ,
+        "DataLoc(record) DataLen(80)"
+      Otherwise nop
+    end
+  end
+  if type <> null then call add_it
+/* ---------------------------------------------------- *
+ * Processing completed - now lmfree the allocation and *
+ * Libdef the library.                                  *
+ * ---------------------------------------------------- */
+  if kclist <> null then do
+    Address TSO,
+      "Altlib Act Application(Clist) File("clistdd")"
+    "LmFree dataid("clist")"
+  end
+  if kexec <> null then do
+    Address TSO,
+      "Altlib Act Application(Exec) File("execdd")"
+    "LmFree dataid("exec")"
+  end
+  if kmsg <> null then do
+    "LmFree dataid("msg")"
+    "Libdef ISPMlib Library ID("msgdd") Stack"
+  end
+  if kpanel <> null then do
+    "Libdef ISPPlib Library ID("paneldd") Stack"
+    "LmFree dataid("panel")"
+  end
+  if kskel <> null then do
+    "Libdef ISPSlib Library ID("skeldd") Stack"
+    "LmFree dataid("skel")"
+  end
+  return returns
+
+/* --------------------------- *
+ * Add the Member using LmmAdd *
+ * based upon type of resource *
+ * --------------------------- */
+Add_It:
+  Select
+    When type = "Clist" then
+    "LmmAdd dataid("clist") Member("name")"
+    When type = "Exec" then
+    "LmmAdd dataid("exec") Member("name")"
+    When type = "Msg" then
+    "LmmAdd dataid("msg") Member("name")"
+    When type = "Panel" then
+    "LmmAdd dataid("panel") Member("name")"
+    When type = "Skel" then
+    "LmmAdd dataid("skel") Member("name")"
+    Otherwise nop
+  end
+  type = null
+  return
+
+/* ------------------------------ *
+ * ALlocate the temp ispf library *
+ * ------------------------------ */
+Alloc_DD:
+  arg dd
+  Address TSO
+  if pos(left(dd,2),"lc le") > 0 then
+  "Alloc f("dd") unit(sysda) spa(5,5) dir(5)",
+    "recfm(v b) lrecl(255) blksize(32760)"
+  else
+  "Alloc f("dd") unit(sysda) spa(5,5) dir(5)",
+    "recfm(f b) lrecl(80) blksize(23440)"
+  return
+
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      DropISPF                                        *
+ *                                                            *
+ * Function:  Remove ISPF LIBDEF's and deactivate ALTLIB's    *
+ *            that were created by the LoadISPF function.     *
+ *                                                            *
+ * Syntax:    rc = dropispf(load_info)                        *
+ *                                                            *
+ * Author:    Janko                                           *
+ *                                                            *
+ * History:                                                   *
+ *            12/05/18 - Creation                             *
+ * ---------------------------------------------------------- */
+DropISPF: Procedure
+  arg load_info
+  Address ISPEXEC
+  do until length(load_info) = 0
+    parse value load_info with dd libd load_info
+    if left(libd,6) = "ALTLIB" then do
+      if libd = "ALTLIBC" then lib = "CLIST"
+      else lib = "EXEC"
+      Address TSO,
+        "Altlib Deact Application("lib")"
+    end
+    else "libdef" libd
+    address tso "free f("dd")"
+  end
+  return 0
