@@ -1,7 +1,7 @@
   /* --------------------  rexx procedure  -------------------- *
   | Name:      ISPFLLV                                         |
   |                                                            |
-  | Function:  ISPF Log/List View                              |
+  | Function:  ISPF Log/List Sysout Viewer                     |
   |                                                            |
   | Syntax:    %ispfllv log/list                               |
   |                                                            |
