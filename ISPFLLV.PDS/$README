@@ -38,8 +38,12 @@ Installation
  4. Update your TSO/ISPF Logon Procedure JCL so that both ISPLIST and ISPLOG
     are allocated to SYSOUT.
 
-    //ISPLIST  DD SYSOUT=*,DCB=(LRECL=121,BLKSIZE=1210,RECFM=FBA)
+    //ISPLIST  DD SYSOUT=*,DCB=(LRECL=121,BLKSIZE=121,RECFM=FA)
     //ISPLOG   DD SYSOUT=*,DCB=(LRECL=125,BLKSIZE=129,DSORG=PS,RECFM=VA)
+
+    Note that both are unblocked so that when viewing there will be no
+    data remaining within the output buffer that hasn't been written to
+    the spool.
 
 or
 

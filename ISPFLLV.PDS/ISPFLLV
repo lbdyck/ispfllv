@@ -35,7 +35,7 @@
   |        Sample Allocation for ISPLIST/ISPLOG:               |
   |                                                            |
   |        ALLOC F(ISPLIST) SYSOUT(H) HOLD -                   |
-  |          LRECL(121) BLKSIZE(1210) RECFM(F B A)             |
+  |          LRECL(121) BLKSIZE(121) RECFM(F A)                |
   |        ALLOC F(ISPLOG)  SYSOUT(H) HOLD -                   |
   |          LRECL(125) BLKSIZE(129) RECFM(V A)                |
   |                                                            |
