@@ -1,7 +1,8 @@
-  /* --------------------  rexx procedure  -------------------- *
-  | Name:      ISPFLLV                                         |
+  /* --------------------  rexx procedure  ------------------- */
+  ver = '1.01'
+  /*Name:      ISPFLLV                                         |
   |                                                            |
-  | Function:  ISPF Log/List Sysout Viewer                     |
+  | Function:  ISPF Log/List View                              |
   |                                                            |
   | Syntax:    %ispfllv log/list                               |
   |                                                            |
@@ -13,7 +14,16 @@
   | Dependencies: 1. ISPLIST and ISPLOG must be allocated to   |
   |                  SYSOUT                                    |
   |               2. The SDSF REXX API must be available       |
-  |               3. STEMEDIT must be available                |
+  |               3. See *custom* section                      |
+  |                                                            |
+  | Customization Settings:                                    |
+  |                                                            |
+  |        STEMEDIT    0 = use ISPF View                       |
+  |                    1 = use STEMEDIT (CBTTape File 895)     |
+  |                                                            |
+  |        DASD        Device type/esoteric to be used if      |
+  |                    STEMEDIT = 0 for the temporary          |
+  |                    dataset allocation.                     |
   |                                                            |
   | Notes: Add these to the ISPF Command table for quicker     |
   |        and easier use (ispfcmds will do this dynamically)  |
@@ -34,6 +44,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2022/05/27 LBD - Version 1.01                   |
   |            2022/05/16 LBD - Refinement.                    |
   |            2022/05/15 LBD - Refinement.                    |
   |            2022/05/14 LBD - Creation                       |
@@ -46,6 +57,13 @@
   arg ispfdd
 
   if word(ispfdd,1) = '?' then call do_tutor
+
+  /* -------- *
+  | *custom* |
+  * -------- */
+  stemedit = 1    /* 0 to use ISPF View, or 1 to use Stemedit View */
+  dasd     = 'VIO'   /* device when stemedit = 0 for the
+  temporary dataset allocation */
 
   /* -------------------------------- *
   | Validate/Set the DD to work with |
@@ -95,9 +113,7 @@
       * --------------------------- */
       address sdsf "isfact st token('"j_token.id"') PARM(NP SA)"
       'Execio * diskr' isfddname.1 '(finis stem in.'
-      title = 'DDName('ispfdd')'  'Sysout Class('j_oclass.id')'
-      call stemedit 'view','in.',,,title
-      call done
+      call do_view
     end
     zedsmsg = ''
     zedlmsg = ispfdd 'has no data or is was not found allocated to SYSOUT.'
@@ -108,6 +124,46 @@
 done:
   rc = isfcalls("OFF")
   exit
+
+  /* ------------------------------------------------ *
+  | Do_View Routine.                                 |
+  |    - based on the value of the stemedit variable |
+  |      0 = use ISPF View                           |
+  |      1 = use STEMEDIT                            |
+  * ------------------------------------------------ */
+Do_View:
+  if stemedit = 0 then do
+
+    blksize = (32760%j_lrecl.id)*j_lrecl.id
+    space   = ((j_reccnt.id*j_lrecl.id)%56000)+1
+
+    recfm = left(j_recfm.id,1) substr(j_recfm.id,2,1) ,
+      substr(j_recfm.id,3,1)
+
+    if left(recfm,1) /= 'U' then do
+      if substr(recfm,2,1) /= 'B' then
+      recfm = left(j_recfm.id,1) 'B' substr(j_recfm.id,3,1)
+    end
+    else recfm = 'V B' substr(j_recfm.id,3,1)
+
+    ddn = 'llv'time('s')
+    'Alloc f('ddn') new blksize('blksize') tracks' ,
+      "unit("dasd")" ,
+      'space('space','space') lrecl('j_lrecl.id')' ,
+      'release recfm('recfm')'
+
+    'execio * diskw' ddn '(finis stem in.'
+
+    Address ISPExec
+    'lminit dataid(ddb) ddname('ddn')'
+    'view dataid('ddb')'
+    'lmfree dataid('ddb')'
+  end
+  else do
+    title = 'DDName('ispfdd')'  'Sysout Class('j_oclass.id')'
+    call stemedit 'view','in.',,,title
+  end
+  call done
 
   /* ------------------------------------------ *
   | Chase control blocks for jobname and jobid |

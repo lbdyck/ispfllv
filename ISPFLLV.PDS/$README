@@ -16,7 +16,17 @@ Installation
 
  1. Copy member ISPFLLV into a PDS in your SYSEXEC, or SYSPROC, allocation.
 
- 2. Update your ISPF Command table with these entries:
+ 2. Update the ISPFLLV code in the *custom* section,
+
+    DASD     Defines the device type or device esoteric to be used
+             for the allocation of a temporary dataset if STEMEDIT=0.
+             Ignored if STEMEDIT=0.
+
+    STEMEDIT 0 to use ISPF View or 1 to use STEMEDIT to view the
+             List/Log data.
+
+
+ 3. Update your ISPF Command table with these entries:
 
           Verb  Trunc  Action
                        Description
@@ -25,7 +35,7 @@ Installation
           VLOG      3  SELECT CMD(%ISPFLLV &ZPARM LOG)
                        Display ISPLOG SYSOUT using SDSF REXX API
 
- 3. Update your TSO/ISPF Logon Procedure JCL so that both ISPLIST and ISPLOG
+ 4. Update your TSO/ISPF Logon Procedure JCL so that both ISPLIST and ISPLOG
     are allocated to SYSOUT.
 
     //ISPLIST  DD SYSOUT=*,DCB=(LRECL=121,BLKSIZE=1210,RECFM=FBA)
@@ -33,16 +43,16 @@ Installation
 
 or
 
- 4. Update your TSO/ISPF Logon Clist/Exec so that both ISPLIST and ISPLOG
+ 5. Update your TSO/ISPF Logon Clist/Exec so that both ISPLIST and ISPLOG
     are allocated to SYSOUT thus:
 
     alloc f(isplist) sysout(h) hold lrecl(121) blksize(1210) recfm(f b a)
     alloc f(isplog)  sysout(h) hold lrecl(125) blksize(129) recfm(v a)
 
- 5. Install STEMEDIT from CBTTape File 895 into a load library in your
+ 6. Install STEMEDIT from CBTTape File 895 into a load library in your
     ISPLLIB set of allocated libraries, or into your Link list.
 
- 6. Verify that the intended users have access to use the SDSF REXX API.
+ 7. Verify that the intended users have access to use the SDSF REXX API.
     If using (E)JES then validate that the SDSF REXX API equivalent has
     been configured.
 
