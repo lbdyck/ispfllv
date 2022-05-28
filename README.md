@@ -52,8 +52,10 @@ or
  5. Update your TSO/ISPF Logon Clist/Exec so that both ISPLIST and ISPLOG
     are allocated to SYSOUT thus:
 
+   ```
     alloc f(isplist) sysout(h) hold lrecl(121) blksize(121) recfm(f a)
     alloc f(isplog)  sysout(h) hold lrecl(125) blksize(129) recfm(v a)
+   ```
 
  6. Install STEMEDIT from CBTTape File 895 into a load library in your
     ISPLLIB set of allocated libraries, or into your Link list.
