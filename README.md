@@ -1,5 +1,4 @@
-# ispfllv
-ISPFLLV - ISPF List/Log Sysout Viewer
+# ISPFLLV - ISPF List/Log Sysout Viewer
 
 This exec provides the ISPF user, who has allocated both ISPLIST and ISPLOG
 to SYSOUT, with the ability to view the active contents of these DD's.
@@ -39,8 +38,8 @@ Installation
  4. Update your TSO/ISPF Logon Procedure JCL so that both ISPLIST and ISPLOG
     are allocated to SYSOUT.
 
-    //ISPLIST  DD SYSOUT=*,DCB=(LRECL=121,BLKSIZE=121,RECFM=FA)
-    //ISPLOG   DD SYSOUT=*,DCB=(LRECL=125,BLKSIZE=129,DSORG=PS,RECFM=VA)
+   //ISPLIST  DD SYSOUT=*,DCB=(LRECL=121,BLKSIZE=121,RECFM=FA)
+   //ISPLOG   DD SYSOUT=*,DCB=(LRECL=125,BLKSIZE=129,DSORG=PS,RECFM=VA)
 
     Note that both are unblocked so that when viewing there will be no
     data remaining within the output buffer that hasn't been written to
