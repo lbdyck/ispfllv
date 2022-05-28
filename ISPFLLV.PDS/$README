@@ -19,10 +19,10 @@ Installation
  2. Update the ISPFLLV code in the *custom* section,
 
     DASD     Defines the device type or device esoteric to be used
-             for the allocation of a temporary dataset if STEMEDIT=0.
-             Ignored if STEMEDIT=0.
+             for the allocation of a temporary dataset if VIEW=0.
+             Ignored if VIEW=0.
 
-    STEMEDIT 0 to use ISPF View or 1 to use STEMEDIT to view the
+    VIEW     0 to use ISPF View or 1 to use STEMEDIT to view the
              List/Log data.
 
 
@@ -55,6 +55,7 @@ or
 
  6. Install STEMEDIT from CBTTape File 895 into a load library in your
     ISPLLIB set of allocated libraries, or into your Link list.
+    ** Optional - see the VIEW customization setting **
 
  7. Verify that the intended users have access to use the SDSF REXX API.
     If using (E)JES then validate that the SDSF REXX API equivalent has
