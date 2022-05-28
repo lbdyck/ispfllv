@@ -43,9 +43,9 @@ Installation
    //ISPLOG   DD SYSOUT=*,DCB=(LRECL=125,BLKSIZE=129,DSORG=PS,RECFM=VA)
    ```
 
-    Note that both are unblocked so that when viewing there will be no
-    data remaining within the output buffer that hasn't been written to
-    the spool.
+   Note that both are unblocked so that when viewing there will be no
+data remaining within the output buffer that hasn't been written to
+the spool.
 
 or
 
