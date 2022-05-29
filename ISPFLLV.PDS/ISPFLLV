@@ -18,11 +18,11 @@
   |                                                            |
   | Customization Settings:                                    |
   |                                                            |
-  |        VIEW        0 = use ISPF View                       |
+  |        STEMEDIT    0 = use ISPF View                       |
   |                    1 = use STEMEDIT (CBTTape File 895)     |
   |                                                            |
   |        DASD        Device type/esoteric to be used if      |
-  |                    VIEW = 0 for the temporary              |
+  |                    STEMEDIT = 0 for the temporary          |
   |                    dataset allocation.                     |
   |                                                            |
   | Notes: Add these to the ISPF Command table for quicker     |
@@ -44,8 +44,8 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
-  |            2022/05/28 LBD - Version 1.02                   |
-  |                             Refine and clean up            |
+  |            2022/05/29 LBD - Version 1.02                   |
+  |                             add isffilter2 for ddname      |
   |            2022/05/27 LBD - Version 1.01                   |
   |            2022/05/16 LBD - Refinement.                    |
   |            2022/05/15 LBD - Refinement.                    |
@@ -63,8 +63,8 @@
   /* -------- *
   | *custom* |
   * -------- */
-  view = 1    /* 0 to use ISPF View, or 1 to use Stemedit View */
-  dasd = 'VIO'   /* device when view = 0 for the
+  stemedit = 1    /* 0 to use ISPF View, or 1 to use Stemedit View */
+  dasd     = 'VIO'   /* device when stemedit = 0 for the
   temporary dataset allocation */
 
   /* -------------------------------- *
@@ -107,6 +107,7 @@
     /* ----------------------- *
     | Get the list of DDnames |
     * ----------------------- */
+    isffilter2 = 'ddname =' ispfdd
     address sdsf "isfact st token('"token.i"') PARM(NP ?) (prefix j_"
     do id = 1 to j_ddname.0
       if j_ddname.id /= ispfdd then iterate
@@ -129,12 +130,12 @@ done:
 
   /* ------------------------------------------------ *
   | Do_View Routine.                                 |
-  |    - based on the value of the view variable     |
+  |    - based on the value of the stemedit variable |
   |      0 = use ISPF View                           |
   |      1 = use STEMEDIT                            |
   * ------------------------------------------------ */
 Do_View:
-  if view = 0 then do
+  if stemedit = 0 then do
 
     blksize = (32760%j_lrecl.id)*j_lrecl.id
     space   = ((j_reccnt.id*j_lrecl.id)%56000)+1
@@ -162,7 +163,8 @@ Do_View:
     'lmfree dataid('ddb')'
   end
   else do
-    title = 'DDName('ispfdd')'  'Sysout Class('j_oclass.id')'
+    title = 'DDName('ispfdd')'  'Sysout Class('j_oclass.id')' ,
+            'Version('ver')'
     call stemedit 'view','in.',,,title
   end
   call done
@@ -223,9 +225,9 @@ Do_Tutor:
 +These only work if the%ISPLIST+and%ISPLOG+DD's have been pre-allocated before
 +ISPF starts, and they must be pre-allocated to SYSOUT (see below for sample).
 +
-+The data contained in%ISPLIST+or%ISPLOG+will be displayed using View allowing
-+the data to be copied (using the ISPF Edit Copy command) to a new, or existing
-+data set.
++The data contained in%ISPLIST+or%ISPLOG+will be displayed using STEMEDIT View
++allowing the data to be copied (using the ISPF Edit Copy command) to a new, or
++existing data set.
 +
 %Assumption:+ The VLIST and VLOG commands have been added to the ISPF
 +              command table.
@@ -233,7 +235,7 @@ Do_Tutor:
 %Syntax: +ISPFLLV LIst/LOg or ?
 +
 %Sample Allocations:
-+   alloc f(isplist) sysout(h) hold lrecl(121) blksize(121) recfm(f a)
++   alloc f(isplist) sysout(h) hold lrecl(121) blksize(1210) recfm(f b a)
 +   alloc f(isplog)  sysout(h) hold lrecl(125) blksize(129) recfm(v a)
 +
 )Proc
