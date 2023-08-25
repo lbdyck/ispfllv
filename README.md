@@ -34,7 +34,7 @@ Installation
                        Display ISPLIST SYSOUT using SDSF REXX API
           VLOG      3  SELECT CMD(%ISPFLLV &ZPARM LOG)
                        Display ISPLOG SYSOUT using SDSF REXX API
-    Or
+          Or
           Verb  Trunc  Action
                        Description
           LIST      3  SELECT CMD(%ISPFLLV &ZPARM LIST)
