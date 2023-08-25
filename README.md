@@ -28,7 +28,6 @@ Installation
 
  3. Update your ISPF Command table with these entries:
 
-          ```
           Verb  Trunc  Action
                        Description
           VLIST     3  SELECT CMD(%ISPFLLV &ZPARM LIST)
@@ -42,7 +41,6 @@ Installation
                        Display ISPLIST SYSOUT using SDSF REXX API
           LOG       3  SELECT CMD(%ISPFLLV &ZPARM LOG)
                        Display ISPLOG SYSOUT using SDSF REXX API
-          ```
 
  4. Update your TSO/ISPF Logon Procedure JCL so that both ISPLIST and ISPLOG
     are allocated to SYSOUT.
